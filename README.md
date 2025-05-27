@@ -1,85 +1,76 @@
 ## 📌 Notes
 > This lab builds on an existing SOC lab setup. The honeypot VM and Log Analytics workspace were already configured before starting the detection work. The focus of this session was on detection rule creation, alert validation, and incident investigation.
-
 # 🧪 Brute Force Detection Using Microsoft Sentinel – Hands-On Lab
 
-> This short lab documents my hands-on setup of a brute force detection use case using Microsoft Sentinel and a pre-configured honeypot VM.
+> This lab documents how I set up a brute force detection scenario using Microsoft Sentinel and a honeypot VM in Azure.
 
 ---
 
-## ✅ What I Did
+## ⚙️ Lab Objectives
 
-### 1. Confirmed VM & Log Analytics Connection
-- My honeypot VM was already connected to a Log Analytics workspace
-- Verified the connection in **Microsoft Sentinel > Logs** using:
-
-```kql
-Heartbeat
-| where TimeGenerated > ago(5m)
-```
-
-✅ The query returned results, confirming that the VM was actively sending heartbeat logs.
+- Deploy a vulnerable honeypot VM
+- Simulate brute force RDP login attempts
+- Collect logs and analyze Event ID 4625 in Microsoft Sentinel
+- Write a KQL query to detect excessive failed logins
+- Create an analytic rule to trigger incidents
+- Validate alerts and view incidents in Sentinel
 
 ---
 
-### 2. Simulated Brute Force Login Attempts
-- Opened RDP session to the honeypot VM
-- Entered **incorrect passwords** multiple times (5–10 attempts)
-- Waited a few minutes for logs to flow into Sentinel
+## 🛠️ Lab Setup
+
+- **SIEM**: Microsoft Sentinel  
+- **VM**: Azure Windows Server honeypot  
+- **Protocol simulated**: RDP (Remote Desktop Protocol)  
+- **Logs**: Windows Security Logs (Event ID 4625)  
+- **Rule trigger**: Failed logins from same IP/account over short time span
 
 ---
 
-### 3. Verified Failed Logins in Sentinel
-- Opened **Sentinel > Logs**
-- Queried for failed login attempts using Event ID `4625`:
+## 🔍 Simulation Process
 
-```kql
-SecurityEvent
-| where EventID == 4625
-| sort by TimeGenerated desc
-```
+1. **Honeypot Deployment**  
+   Deployed a Windows Server VM in Azure with RDP open to the internet.
 
-✅ The query returned failed login events, confirming that the honeypot was generating the appropriate logs.
+2. **Failed Login Simulation**  
+   Repeatedly attempted login with invalid credentials to generate Event ID 4625 logs.
 
----
+3. **Log Verification**  
+   Viewed logs in Sentinel:
 
-### 4. Created a Custom Detection Rule in Sentinel
-- Went to **Microsoft Sentinel > Analytics > + Create > Scheduled query rule**
-- Entered the following details:
+   ![KQL Query](images/sentinel-query.png)
 
-**Rule Name:** Brute Force Logon Detection – Honeypot  
-**Tactic:** Credential Access  
-**Severity:** Medium  
-**Run Frequency:** Every 5 minutes  
-**Lookup Period:** 10 minutes
+   ```kql
+   SecurityEvent
+   | where EventID == 4625
+   | sort by TimeGenerated desc
+   ```
 
-**KQL Query Used:**
+4. **Event Log Results**
 
-```kql
-SecurityEvent
-| where EventID == 4625
-| summarize FailedAttempts = count() by IPAddress = RemoteIpAddress, bin(TimeGenerated, 5m)
-| where FailedAttempts > 5
-```
+   ![Failed Login Logs](images/failed-logons.png)
 
-- Saved the rule and enabled it
+5. **Incident Generation**  
+   Created a scheduled analytics rule to detect brute force behavior using this KQL:
 
----
+   ```kql
+   SecurityEvent
+   | where EventID == 4625
+   | summarize FailedAttempts = count() by Account, bin(TimeGenerated, 5m)
+   | where FailedAttempts > 5
+   ```
 
-### 5. Validated the Detection
-- Triggered another round of failed login attempts
-- Returned to **Sentinel > Incidents**
-- ✅ Verified that the rule successfully fired and created an **Incident** titled: `Brute Force Login`
+6. **Confirmed Triggered Incidents**
+
+   ![Sentinel Incidents](images/sentinel-incidents.png)
+
+   Microsoft Sentinel automatically created incidents titled **"Brute Force Logon Detection"** with a medium severity.
 
 ---
 
-## 🧠 Skills Practiced
+## ✅ Outcome
 
-- Writing KQL queries in Microsoft Sentinel
-- Analyzing Windows Security Logs (Event ID 4625)
-- Creating custom detection rules based on log patterns
-- Simulating brute force attacks for detection testing
-- Using Microsoft Sentinel’s analytics and incident features
+This project demonstrates hands-on SOC experience detecting brute force login attempts in Microsoft Sentinel using real logs, KQL, and analytic rule configuration.
 
 ---
 
